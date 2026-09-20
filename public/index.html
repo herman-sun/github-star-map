@@ -38,6 +38,7 @@
         </select>
       </label>
       <button class="btn" id="refreshBtn">刷新</button>
+      <label class="toggle"><input type="checkbox" id="aiOnly"> 只看 AI 相关</label>
       <span class="hint" id="trendingHint"></span>
     </div>
     <div class="grid" id="trendingGrid"></div>
@@ -47,6 +48,7 @@
     <form class="controls" id="searchForm">
       <input type="search" id="searchInput" placeholder="搜仓库名、描述或话题，例如 vector database" autocomplete="off">
       <button class="btn primary" type="submit">搜索</button>
+      <label class="toggle"><input type="checkbox" id="aiOnlySearch"> 只看 AI 相关</label>
       <span class="hint" id="searchHint"></span>
     </form>
     <div class="grid" id="searchGrid"></div>

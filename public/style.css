@@ -122,6 +122,23 @@ select:focus, input:focus { outline: 1px solid var(--link); }
 .hint { font-size: 13px; color: var(--muted); }
 .hint.err { color: var(--accent); }
 
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle:hover { border-color: var(--muted); }
+.toggle input { accent-color: var(--star); margin: 0; }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));

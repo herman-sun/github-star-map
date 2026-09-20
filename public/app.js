@@ -4,7 +4,18 @@ const state = {
   stars: new Set(),
   starDetails: new Map(),
   languages: [],
+  lastTrending: [],
+  lastSearch: [],
 };
+
+// 关键词两侧必须是非字母，避免 said/aid、maintain/ai 这类误判
+const AI_RE = /(?:^|[^a-z])(ai|a\.i\.|llm|gpt|chatgpt|claude|gemini|agent|agentic|rag|fine-?tune|prompt|inference|embedding|vector ?db|machine learning|deep learning|neural|copilot|cursor|mcp|transformer|diffusion|langchain|openai|anthropic|qwen|llama)(?:$|[^a-z])/i;
+
+const isAI = (r) => AI_RE.test(`${r.fullName} ${r.description || ''}`);
+
+function applyFilter(repos, onlyAi) {
+  return onlyAi ? repos.filter(isAI) : repos;
+}
 
 const LANG_COLORS = [
   '#f1e05a', '#3178c6', '#3572A5', '#00ADD8', '#dea584',
@@ -88,13 +99,24 @@ async function loadTrending(hintEl) {
     const qs = new URLSearchParams({ since });
     if (lang) qs.set('language', lang);
     const { repos } = await api(`/api/trending?${qs}`);
-    render(grid, repos, '这个组合下没有结果');
-    hintEl.textContent = `${repos.length} 个仓库 · 来自 github.com/trending`;
+    state.lastTrending = repos;
+    renderTrending();
   } catch (err) {
     grid.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
     hintEl.textContent = '加载失败';
     hintEl.classList.add('err');
   }
+}
+
+function renderTrending() {
+  const onlyAi = $('#aiOnly').checked;
+  const shown = applyFilter(state.lastTrending, onlyAi);
+  render($('#trendingGrid'), shown, onlyAi ? '这个筛选条件下没有 AI 相关仓库' : '这个组合下没有结果');
+  const hint = $('#trendingHint');
+  hint.classList.remove('err');
+  hint.textContent = onlyAi
+    ? `${shown.length} / ${state.lastTrending.length} 个仓库与 AI 相关`
+    : `${shown.length} 个仓库 · 来自 github.com/trending`;
 }
 
 async function doSearch() {
@@ -106,13 +128,22 @@ async function doSearch() {
   hint.textContent = '搜索中…';
   try {
     const { repos } = await api(`/api/search?q=${encodeURIComponent(q)}&limit=30`);
-    render($('#searchGrid'), repos, '没有匹配的仓库');
-    hint.textContent = `${repos.length} 个结果`;
+    state.lastSearch = repos;
+    renderSearch();
   } catch (err) {
     $('#searchGrid').innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
     hint.textContent = '搜索失败';
     hint.classList.add('err');
   }
+}
+
+function renderSearch() {
+  const onlyAi = $('#aiOnlySearch').checked;
+  const shown = applyFilter(state.lastSearch, onlyAi);
+  render($('#searchGrid'), shown, '没有匹配的仓库');
+  $('#searchHint').textContent = onlyAi
+    ? `${shown.length} / ${state.lastSearch.length} 个结果与 AI 相关`
+    : `${shown.length} 个结果`;
 }
 
 async function refreshStars() {
@@ -270,6 +301,8 @@ $('#searchForm').addEventListener('submit', (e) => {
 $('#refreshBtn').addEventListener('click', () => loadTrending($('#trendingHint')));
 $('#langSelect').addEventListener('change', () => loadTrending($('#trendingHint')));
 $('#sinceSelect').addEventListener('change', () => loadTrending($('#trendingHint')));
+$('#aiOnly').addEventListener('change', renderTrending);
+$('#aiOnlySearch').addEventListener('change', renderSearch);
 
 const mapTip = $('#mapWrap');
 mapTip.addEventListener('mousemove', (e) => {
