@@ -11,6 +11,21 @@ const state = {
 // 关键词两侧必须是非字母，避免 said/aid、maintain/ai 这类误判
 const AI_RE = /(?:^|[^a-z])(ai|a\.i\.|llm|gpt|chatgpt|claude|gemini|agent|agentic|rag|fine-?tune|prompt|inference|embedding|vector ?db|machine learning|deep learning|neural|copilot|cursor|mcp|transformer|diffusion|langchain|openai|anthropic|qwen|llama)(?:$|[^a-z])/i;
 
+// Pages 上没有 /api/meta，语言列表必须内置
+const LANGUAGES = [
+  ['', '全部语言'],
+  ['typescript', 'TypeScript'],
+  ['javascript', 'JavaScript'],
+  ['python', 'Python'],
+  ['go', 'Go'],
+  ['rust', 'Rust'],
+  ['java', 'Java'],
+  ['swift', 'Swift'],
+  ['kotlin', 'Kotlin'],
+  ['c++', 'C++'],
+  ['shell', 'Shell'],
+];
+
 const isAI = (r) => AI_RE.test(`${r.fullName} ${r.description || ''}`);
 
 function applyFilter(repos, onlyAi) {
@@ -393,15 +408,10 @@ mapTip.addEventListener('mousemove', (e) => {
 });
 
 (async function init() {
-  try {
-    const { languages } = await api('/api/meta');
-    state.languages = languages;
-    $('#langSelect').innerHTML = languages
-      .map(([value, label]) => `<option value="${value}">${label}</option>`)
-      .join('');
-  } catch {
-    $('#langSelect').innerHTML = '<option value="">全部语言</option>';
-  }
+  state.languages = LANGUAGES.map(([, label]) => label);
+  $('#langSelect').innerHTML = LANGUAGES
+    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+    .join('');
   await refreshStars();
   loadTrending($('#trendingHint'));
 })();
