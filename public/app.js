@@ -41,6 +41,32 @@ const LANG_CODE = {
 };
 
 const LS_KEY = 'github-star-map:stars';
+const THEME_KEY = 'github-star-map:theme';
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const btn = document.getElementById('themeBtn');
+  if (btn) {
+    btn.textContent = theme === 'dark' ? '◑' : '◐';
+    btn.title = theme === 'dark' ? '切到亮色' : '切到暗色';
+  }
+}
+
+function initTheme() {
+  applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+}
+
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+  drawMap(starRepos());
+}
+
+// 画布用色跟随主题变量
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
 
 function localStars() {
   try {
@@ -368,7 +394,7 @@ function drawMap(repos) {
   ctx.clearRect(0, 0, W, H);
 
   if (!repos.length) {
-    ctx.fillStyle = '#9198a1';
+    ctx.fillStyle = cssVar('--muted');
     ctx.font = '15px -apple-system, PingFang SC';
     ctx.textAlign = 'center';
     ctx.fillText('还没有收藏，去「热门榜单」点几个 ☆ 就有了', W / 2, H / 2);
@@ -417,7 +443,7 @@ function drawMap(repos) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    ctx.fillStyle = '#e6edf3';
+    ctx.fillStyle = cssVar('--text');
     ctx.font = '11px -apple-system, PingFang SC';
     ctx.textAlign = 'center';
     const label = node.r.name && node.r.name.length > 13 ? node.r.name.slice(0, 12) + '…' : node.r.name;
@@ -425,12 +451,8 @@ function drawMap(repos) {
   }
 }
 
-async function loadStarsView() {
-  const list = await refreshStars();
-  const names = list.map((s) => s.fullName);
-  skeleton($('#starsGrid'), Math.max(names.length, 1));
-  await hydrate(names);
-  const repos = names.map((n) => state.starDetails.get(n) || {
+function starRepos() {
+  return [...state.stars].map((n) => state.starDetails.get(n) || {
     fullName: n,
     name: n.split('/')[1],
     url: `https://github.com/${n}`,
@@ -440,6 +462,14 @@ async function loadStarsView() {
     forks: 0,
     addedStars: 0,
   });
+}
+
+async function loadStarsView() {
+  const list = await refreshStars();
+  const names = list.map((s) => s.fullName);
+  skeleton($('#starsGrid'), Math.max(names.length, 1));
+  await hydrate(names);
+  const repos = starRepos();
   render($('#starsGrid'), repos, '还没有收藏');
   drawMap(repos);
   $('#starsHint').textContent = names.length ? `已收藏 ${names.length} 个仓库` : '收藏后会在这里画成星图';
@@ -473,6 +503,7 @@ $('#searchForm').addEventListener('submit', (e) => {
 });
 
 $('#refreshBtn').addEventListener('click', () => loadTrending($('#trendingHint')));
+$('#themeBtn').addEventListener('click', toggleTheme);
 $('#langSelect').addEventListener('change', () => loadTrending($('#trendingHint')));
 $('#sinceSelect').addEventListener('change', () => loadTrending($('#trendingHint')));
 $('#aiOnly').addEventListener('change', renderTrending);
@@ -491,6 +522,7 @@ mapTip.addEventListener('mousemove', (e) => {
 });
 
 (async function init() {
+  initTheme();
   state.languages = LANGUAGES.map(([, label]) => label);
   $('#langSelect').innerHTML = LANGUAGES
     .map(([value, label]) => `<option value="${value}">${label}</option>`)
