@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub 星图 · 热门仓库发现</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">✦</span>
+    <div>
+      <h1>GitHub 星图</h1>
+      <p class="sub">发现热门仓库，攒下你自己的星图</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-view="trending">热门榜单</button>
+    <button class="tab" data-view="search">搜索</button>
+    <button class="tab" data-view="stars">
+      我的收藏 <span class="badge" id="starCount">0</span>
+    </button>
+  </nav>
+</header>
+
+<main>
+  <section class="view active" id="view-trending">
+    <div class="controls">
+      <label>语言
+        <select id="langSelect"></select>
+      </label>
+      <label>时间范围
+        <select id="sinceSelect">
+          <option value="daily">今日</option>
+          <option value="weekly">本周</option>
+          <option value="monthly">本月</option>
+        </select>
+      </label>
+      <button class="btn" id="refreshBtn">刷新</button>
+      <span class="hint" id="trendingHint"></span>
+    </div>
+    <div class="grid" id="trendingGrid"></div>
+  </section>
+
+  <section class="view" id="view-search">
+    <form class="controls" id="searchForm">
+      <input type="search" id="searchInput" placeholder="搜仓库名、描述或话题，例如 vector database" autocomplete="off">
+      <button class="btn primary" type="submit">搜索</button>
+      <span class="hint" id="searchHint"></span>
+    </form>
+    <div class="grid" id="searchGrid"></div>
+  </section>
+
+  <section class="view" id="view-stars">
+    <div class="controls">
+      <span class="hint" id="starsHint"></span>
+    </div>
+    <div class="map-wrap" id="mapWrap">
+      <canvas id="starMap" width="1000" height="420"></canvas>
+      <p class="map-tip">节点大小 = star 数，颜色按语言分组。鼠标悬停看名字。</p>
+    </div>
+    <div class="grid" id="starsGrid"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "github-star-map",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GitHub 热门仓库发现工具：榜单、搜索、收藏星图",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
