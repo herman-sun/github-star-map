@@ -6,3 +6,4 @@ node_modules/
 dist/
 .next/
 .qoder/cache/
+docs/

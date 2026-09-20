@@ -17,6 +17,27 @@ function applyFilter(repos, onlyAi) {
   return onlyAi ? repos.filter(isAI) : repos;
 }
 
+// Pages 上没有后端：trending 读预生成快照，搜索直连 GitHub API，收藏存浏览器本地
+const STATIC = location.hostname.endsWith('github.io');
+const LANG_CODE = {
+  TypeScript: 'typescript', JavaScript: 'javascript', Python: 'python', Go: 'go',
+  Rust: 'rust', Java: 'java', Swift: 'swift', Kotlin: 'kotlin', 'C++': 'c++', Shell: 'shell',
+};
+
+const LS_KEY = 'github-star-map:stars';
+
+function localStars() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalStars(list) {
+  localStorage.setItem(LS_KEY, JSON.stringify(list));
+}
+
 const LANG_COLORS = [
   '#f1e05a', '#3178c6', '#3572A5', '#00ADD8', '#dea584',
   '#e34c26', '#563d7c', '#ff69b4', '#428bca', '#986d35',
@@ -88,18 +109,36 @@ function render(grid, repos, emptyText) {
   grid.innerHTML = repos.map(cardHtml).join('');
 }
 
-async function loadTrending(hintEl) {
-  const grid = $('#trendingGrid');
-  skeleton(grid);
-  hintEl.textContent = '正在抓取 GitHub Trending…';
-  hintEl.classList.remove('err');
-  try {
-    const lang = $('#langSelect').value;
-    const since = $('#sinceSelect').value;
+async function fetchTrending(lang, since) {
+  if (!STATIC) {
     const qs = new URLSearchParams({ since });
     if (lang) qs.set('language', lang);
     const { repos } = await api(`/api/trending?${qs}`);
+    return { repos, builtAt: null };
+  }
+  const key = `${lang || 'all'}__${since}.json`;
+  const repos = await (await fetch(`data/${key}`)).json().catch(() => {
+    throw new Error(`快照 ${key} 缺失，等下一次 Actions 构建`);
+  });
+  const { builtAt } = await (await fetch('data/manifest.json')).json().catch(() => ({ builtAt: null }));
+  return { repos, builtAt };
+}
+
+function snapshotNote(builtAt) {
+  if (!builtAt) return '';
+  const d = new Date(builtAt);
+  return ` · 快照 ${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+async function loadTrending(hintEl) {
+  const grid = $('#trendingGrid');
+  skeleton(grid);
+  hintEl.textContent = STATIC ? '读取最新快照…' : '正在抓取 GitHub Trending…';
+  hintEl.classList.remove('err');
+  try {
+    const { repos, builtAt } = await fetchTrending($('#langSelect').value, $('#sinceSelect').value);
     state.lastTrending = repos;
+    state.builtAt = builtAt;
     renderTrending();
   } catch (err) {
     grid.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
@@ -114,9 +153,35 @@ function renderTrending() {
   render($('#trendingGrid'), shown, onlyAi ? '这个筛选条件下没有 AI 相关仓库' : '这个组合下没有结果');
   const hint = $('#trendingHint');
   hint.classList.remove('err');
+  const note = STATIC ? snapshotNote(state.builtAt) : '';
   hint.textContent = onlyAi
-    ? `${shown.length} / ${state.lastTrending.length} 个仓库与 AI 相关`
-    : `${shown.length} 个仓库 · 来自 github.com/trending`;
+    ? `${shown.length} / ${state.lastTrending.length} 个仓库与 AI 相关${note}`
+    : `${shown.length} 个仓库${STATIC ? ` · Actions 预生成快照${note}` : ' · 来自 github.com/trending'}`;
+}
+
+async function runSearch(q) {
+  if (STATIC) {
+    const res = await fetch(
+      `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&per_page=30`,
+      { headers: { Accept: 'application/vnd.github+json' } },
+    );
+    if (res.status === 403 || res.status === 429) throw new Error('GitHub 匿名搜索限流（每分钟约 10 次），稍等再试');
+    if (!res.ok) throw new Error(`GitHub API 返回 ${res.status}`);
+    const body = await res.json();
+    return (body.items || []).map((it) => ({
+      fullName: it.full_name,
+      name: it.name,
+      owner: it.owner?.login || '',
+      url: it.html_url,
+      description: it.description || '',
+      language: it.language || '',
+      stars: it.stargazers_count || 0,
+      forks: it.forks_count || 0,
+      addedStars: 0,
+    }));
+  }
+  const { repos } = await api(`/api/search?q=${encodeURIComponent(q)}&limit=30`);
+  return repos;
 }
 
 async function doSearch() {
@@ -127,8 +192,7 @@ async function doSearch() {
   skeleton($('#searchGrid'));
   hint.textContent = '搜索中…';
   try {
-    const { repos } = await api(`/api/search?q=${encodeURIComponent(q)}&limit=30`);
-    state.lastSearch = repos;
+    state.lastSearch = await runSearch(q);
     renderSearch();
   } catch (err) {
     $('#searchGrid').innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
@@ -147,7 +211,9 @@ function renderSearch() {
 }
 
 async function refreshStars() {
-  const { stars } = await api('/api/stars');
+  const stars = STATIC
+    ? localStars()
+    : (await api('/api/stars')).stars;
   state.stars = new Set(stars.map((s) => s.fullName));
   state.starDetails = new Map(stars.map((s) => [s.fullName, s]));
   $('#starCount').textContent = String(stars.length);
@@ -160,7 +226,17 @@ async function refreshStars() {
 }
 
 async function toggleStar(fullName) {
-  if (state.stars.has(fullName)) {
+  if (STATIC) {
+    const list = localStars();
+    if (state.stars.has(fullName)) {
+      saveLocalStars(list.filter((s) => s.fullName !== fullName));
+      toast(`已取消收藏 ${fullName}`);
+    } else {
+      list.unshift({ fullName, at: new Date().toISOString() });
+      saveLocalStars(list);
+      toast(`已收藏 ${fullName}`);
+    }
+  } else if (state.stars.has(fullName)) {
     await api(`/api/stars?fullName=${encodeURIComponent(fullName)}`, { method: 'DELETE' });
     toast(`已取消收藏 ${fullName}`);
   } else {
@@ -178,9 +254,9 @@ async function toggleStar(fullName) {
 // 收藏列表里的卡片拿不到 star 总数，逐个补齐（限量避免限流）
 async function hydrate(names) {
   const missing = names.filter((n) => !state.starDetails.get(n)?.stars);
-  for (const name of missing.slice(0, 20)) {
+  for (const name of missing.slice(0, STATIC ? 8 : 20)) {
     try {
-      const { repos } = await api(`/api/search?q=${encodeURIComponent(name)}&limit=1`);
+      const repos = await runSearch(name);
       const hit = repos.find((r) => r.fullName === name);
       if (hit) state.starDetails.set(name, { ...state.starDetails.get(name), ...hit });
     } catch {
