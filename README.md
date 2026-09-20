@@ -37,6 +37,12 @@ npm start
 | 搜索 | 走 GitHub `search/repositories` 接口 |
 | 我的收藏 | 收藏的仓库画成星图，节点大小 = star 数，颜色 = 语言 |
 
+每张卡片有 **README** 按钮，点击就地展开该仓库的 README，再点收起。
+内容取自 GitHub API 的 `application/vnd.github.html` 媒体类型，即 GitHub 自己渲染好的
+HTML，因此不需要自带 markdown 渲染器。属第三方内容，注入前会剥离
+`script/style/iframe` 等节点与 `on*` 事件属性，并给所有链接加 `rel="noreferrer noopener"`。
+已加载的 README 缓存在内存里，重复展开不再请求。
+
 两个列表都有「只看 AI 相关」开关，按名称和描述里的关键词（llm / agent / mcp / copilot 等）匹配。
 这是纯客户端的启发式判断，不是 GitHub 官方分类，可能漏掉描述里不提 AI 的 AI 项目。
 
