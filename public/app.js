@@ -6,6 +6,7 @@ const state = {
   languages: [],
   lastTrending: [],
   lastSearch: [],
+  readmes: {},
 };
 
 // 关键词两侧必须是非字母，避免 said/aid、maintain/ai 这类误判
@@ -105,15 +106,94 @@ function cardHtml(r) {
     ${r.addedStars ? `<span class="gain">+${fmt(r.addedStars)}</span>` : ''}
   </div>
   <div class="card-foot">
+    <button class="readme-btn" data-readme="${r.owner}/${r.name}" data-repo="${r.fullName}">README</button>
     <button class="star-btn ${starred ? 'on' : ''}" data-star="${r.fullName}">
       ${starred ? '已收藏' : '☆ 收藏'}
     </button>
   </div>
+  <div class="readme" id="readme-${r.fullName.replace(/[^A-Za-z0-9]/g, '_')}" hidden></div>
 </div>`;
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// GitHub 渲染好的 README 属于第三方内容，注入前必须清洗
+function sanitize(html) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  tpl.content
+    .querySelectorAll('script, style, iframe, object, embed, link, meta')
+    .forEach((n) => n.remove());
+  for (const el of tpl.content.querySelectorAll('*')) {
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on')) el.removeAttribute(attr.name);
+      if ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    }
+    if (el.tagName === 'A') {
+      el.setAttribute('target', '_blank');
+      el.setAttribute('rel', 'noreferrer noopener');
+    }
+  }
+  return tpl.innerHTML;
+}
+
+async function fetchReadme(slug) {
+  const path = STATIC
+    ? `https://api.github.com/repos/${slug}/readme`
+    : `/api/readme?repo=${encodeURIComponent(slug)}`;
+  const res = await fetch(path, { headers: { Accept: 'application/vnd.github.html' } });
+  if (res.status === 404) return { notFound: true };
+  if (res.status === 403 || res.status === 429) return { error: 'GitHub 匿名接口限流（每小时 60 次），稍后再试' };
+  if (!res.ok) return { error: `GitHub 返回 ${res.status}` };
+  return { html: await res.text() };
+}
+
+async function toggleReadme(btn) {
+  const slug = btn.dataset.readme;
+  const box = document.getElementById(`readme-${btn.dataset.repo.replace(/[^A-Za-z0-9]/g, '_')}`);
+  if (!box) return;
+
+  if (!box.hidden) {
+    box.hidden = true;
+    btn.textContent = 'README';
+    return;
+  }
+
+  box.hidden = false;
+  btn.textContent = '收起';
+
+  if (box.dataset.loaded === '1') return;
+
+  if (state.readmes[slug]) {
+    box.innerHTML = state.readmes[slug];
+    box.dataset.loaded = '1';
+    return;
+  }
+
+  box.innerHTML = '<p class="readme-hint">加载中…</p>';
+  btn.disabled = true;
+  try {
+    const result = await fetchReadme(slug);
+    if (result.notFound) {
+      box.innerHTML = '<p class="readme-hint">这个仓库没有 README</p>';
+    } else if (result.error) {
+      box.innerHTML = `<p class="readme-hint err">${escapeHtml(result.error)}</p>`;
+    } else {
+      const clean = sanitize(result.html);
+      state.readmes[slug] = clean;
+      box.innerHTML = clean;
+    }
+    box.dataset.loaded = '1';
+  } catch (err) {
+    box.innerHTML = `<p class="readme-hint err">${escapeHtml(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function render(grid, repos, emptyText) {
@@ -376,6 +456,9 @@ function switchView(view) {
 document.addEventListener('click', (e) => {
   const tab = e.target.closest('.tab');
   if (tab) return switchView(tab.dataset.view);
+
+  const readmeBtn = e.target.closest('[data-readme]');
+  if (readmeBtn) return toggleReadme(readmeBtn);
 
   const starBtn = e.target.closest('[data-star]');
   if (starBtn) {

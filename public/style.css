@@ -182,7 +182,53 @@ select:focus, input:focus { outline: 1px solid var(--link); }
 .stars { color: var(--star); }
 .gain { color: #56d364; }
 
-.card-foot { display: flex; justify-content: flex-end; }
+.card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+.readme-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+  letter-spacing: .5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.readme-btn:hover { color: var(--link); border-color: var(--link); }
+
+.readme {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  max-height: 460px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.readme > :first-child { margin-top: 0; }
+.readme h1, .readme h2, .readme h3, .readme h4 { font-size: 15px; margin: 16px 0 8px; }
+.readme h1 { font-size: 17px; }
+.readme img { max-width: 100%; }
+.readme pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.readme code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.readme a { color: var(--link); }
+.readme table { border-collapse: collapse; font-size: 12px; }
+.readme th, .readme td { border: 1px solid var(--border); padding: 4px 8px; }
+.readme blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--border); color: var(--muted); }
+
+.readme-hint { color: var(--muted); font-size: 13px; }
+.readme-hint.err { color: var(--accent); }
 
 .star-btn {
   background: transparent;

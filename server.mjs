@@ -118,6 +118,18 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { repos });
     }
 
+    if (path === '/api/readme') {
+      const repo = (url.searchParams.get('repo') || '').trim();
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return send(res, 400, { error: 'repo 参数格式不对' });
+      const r = await fetch(`https://api.github.com/repos/${repo}/readme`, {
+        headers: { Accept: 'application/vnd.github.html', 'User-Agent': 'github-star-map' },
+      });
+      if (r.status === 404) return send(res, 404, { error: '这个仓库没有 README' });
+      if (r.status === 403 || r.status === 429) return send(res, 502, { error: 'GitHub 匿名接口限流，稍后再试' });
+      if (!r.ok) return send(res, 502, { error: `GitHub 返回 ${r.status}` });
+      return send(res, 200, await r.text());
+    }
+
     if (path === '/api/stars') {
       if (req.method === 'POST') {
         const raw = await new Promise((r) => {
